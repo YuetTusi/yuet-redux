@@ -1,8 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import {bindActionCreators} from '../redux';
 import {
   store
 } from '../store';
+import actionCreators from '../store/actions/counter';
+
+let actions=bindActionCreators(actionCreators,store.dispatch);
 
 export default class Index extends React.Component {
 
@@ -13,10 +17,12 @@ export default class Index extends React.Component {
     };
   }
   addClick=(e)=>{
-    store.dispatch({type:'ADD',payload:1});
+    actions.add(1);
+    // store.dispatch({type:'ADD',payload:1});
   }
   minusClick=(e)=>{
-    store.dispatch({type:'MINUS',payload:1});
+    actions.minus(1);
+    // store.dispatch({type:'MINUS',payload:1});
   }
   componentWillMount(){
     store.subscribe(()=>{
