@@ -1,2 +1,1 @@
-# yuet-redux
-手写redux源码
+# 手写redux库
