@@ -2,9 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import {bindActionCreators} from '../redux';
 import {
-  store
+  store,
+  reducer
 } from '../store';
-import actionCreators from '../store/actions/counter';
+import actionCreators from '../store/actions';
 
 let actions=bindActionCreators(actionCreators,store.dispatch);
 
@@ -12,39 +13,49 @@ export default class Index extends React.Component {
 
   constructor(props) {
     super(props);
-    this.state = {
-      number: store.getState().number
+    this.state={
+      add:{
+        addValue:store.getState().add.addValue
+      },
+      minus:{
+        minusValue:store.getState().minus.minusValue
+      }
     };
-  }
-  addClick=(e)=>{
-    actions.add(1);
-    // store.dispatch({type:'ADD',payload:1});
-  }
-  minusClick=(e)=>{
-    actions.minus(1);
-    // store.dispatch({type:'MINUS',payload:1});
   }
   componentWillMount(){
     store.subscribe(()=>{
       this.setState({
-        number:store.getState().number
+        add:{
+          addValue:store.getState().add.addValue
+        },
+        minus:{
+          minusValue:store.getState().minus.minusValue
+        }
       });
     });
+  }
+  addClick=(e)=>{
+    actionCreators.add(1);
+  }
+  minusClick=(e)=>{
+    actionCreators.minus(1);
   }
   render() {
     return (
       <div>
-      <h1>
-        <span>Number:</span>
-        <span>{this.state.number}</span>
-      </h1>
-      <button type="button" onClick={this.addClick}>add</button>
-      <button type="button" onClick={this.minusClick}>minus</button>
+        <h2>手写redux源码测试</h2>
+        <div>
+          <span>累加：</span>
+          <span>{this.state.add.addValue}</span>
+          <button type="button" onClick={this.addClick}>+1</button>
+        </div>
+        <div>
+          <span>递减：</span>
+          <span>{this.state.minus.minusValue}</span>
+          <button type="button" onClick={this.minusClick}>-1</button>
+        </div>
       </div>
     );
-  }
-  componentDidUpdate(prevProps,prevState,snapshot){
-
   }
 }
 

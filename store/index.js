@@ -1,11 +1,14 @@
 import {
   createStore
 } from '../redux';
-import counterReducer from './reducers/counter';
+import reducer from './reducers';
 
-let store = createStore(counterReducer);
+// console.log(reducer);
+
+let store = createStore(reducer);
 window._store = store;
 
 export {
-  store
+  store,
+  reducer
 };

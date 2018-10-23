@@ -1,18 +1,11 @@
 import {
-  ADD,
-  MINUS
-} from './action-types/counter';
+  ADD
+} from './action-types/add';
 
 let actionCreators = {
   add: function (payload) {
     return {
       type: ADD,
-      payload
-    };
-  },
-  minus: function (payload) {
-    return {
-      type: MINUS,
       payload
     };
   }
