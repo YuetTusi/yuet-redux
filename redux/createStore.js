@@ -1,9 +1,18 @@
-function createStore(reducer) {
+import {
+  compose
+} from './compose';
+
+function createStore(reducer, enhancer) {
 
   var currentState;
   var isDispatching = false;
   var currentReducer = reducer;
   var listeners = [];
+
+  //若有中间件，加载它
+  if (typeof enhancer === 'function') {
+    return enhancer(createStore)(reducer);
+  }
 
   /**
    * 得到前端状态

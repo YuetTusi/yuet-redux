@@ -11,7 +11,4 @@ let actionCreators = {
     ...minus
 }
 
-console.log(actionCreators);
-
-
 export default bindActionCreators(actionCreators, store.dispatch);

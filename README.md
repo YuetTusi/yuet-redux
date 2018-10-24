@@ -254,3 +254,149 @@ function combineReducers(reducers) {
 这样高阶函数返回的方法一定要按照reducer的名称来分类即可。
 
 至此redux库的核心代码已经实现完毕。等抽出时间再总结一下react-redux库及中间件的源码。
+
+
+
+
+## 中间件
+
+react中管理数据的流程是单向的，就是说，从派发动作一直到发布订阅触发渲染是一条路走到头，那么如果想要在中间添加或是更改某个逻辑就需要找到action或是reducer来修改，有没有更方便的做法呢？
+
+而中间件（middleware）就是一个可插拔的机制，如果想找扩展某个功能，比如添加日志，在更新前后打印出state状态，只需要将日志中间件装到redux上即可，于是便有了日志功能，当不想使用时可再拿掉，非常方便。
+
+
+目前有很多第三方的中间件安装即可使用，比如刚刚提及的日志中间件：redux-logger，使用npm安装它：
+
+```npm install redux-logger```
+
+redux包提供了一个方法可以装载中间件：applyMiddleware。在创建store对象的时候，可以传入第二个参数，它就是中间件：
+
+
+```javascript
+import { createStore, applyMiddleware } from "redux";
+import { reducer } from "./reducer";
+import ReduxLogger from "redux-logger";
+//使用applyMiddleware加载中间件
+let store = createStore(reducer, applyMiddleware(ReduxLogger));
+```
+
+装载好中间件就在派发动作上扩展了相应的功能，这时我们正常编写redux程序，当执行dispatch方法时会在控制台打印出state更新日志：
+
+![logger](https://user-gold-cdn.xitu.io/2018/8/10/1651f784215cfca2?imageView2/0/w/1280/h/960/format/webp/ignore-error/1)
+
+以上就是一个使用中间件的例子。
+
+### 浅析中间件的原理
+
+那么中间件的执行原理是什么呢？就用刚刚的日志中间件举例，它的功能是在state对象的更新前后分别输出状态，那么肯定是在派发（dispatch）动作的那一刻去实现的，那我们改写一下redux库，将“打印日志”功能添加到dispatch方法里：
+
+```javascript
+let temp = store.dispatch;//暂存原dispatch方法
+store.dispatch = function(action) {
+  console.log("旧state：", store.getState());
+  temp(action);//执行原dispatch方法
+  console.log("新state：", store.getState());
+};
+```
+这样就实现了“日志中间件”，但是直接改写redux库是不可能的，我们需要一个通用的办法去定义中间件，redux提供了这样一个方法：**applyMiddleware**。
+
+它的使用方法很简单，将需要加载的中间件依次传入applyMiddleware方法中即可：
+
+```applyMiddleware(ReduxLogger, ReduxThunk);```
+
+### 手写applyMiddleware源码
+
+中间件原理我们分析完了，即然中间件就是扩展dispatch方法，那么applyMiddlware必然会将中间件的dispatch方法和原始dispatch传入才可行，没错，我们就看看它的方法签名：
+
+```javascript 
+var applyMiddleware = (middlewares) => (createStore) => (reducer) => {};
+```
+
+以上就是applyMiddleware方法，它又是一个三层的高阶函数，这里用到了函数柯里化的思想，将多个参数拆分为单一参数的高阶函数，以保证每一层只有一个参数，这样更加灵活可分块调用。写成箭头函数不好理解，我们改写为普通函数形式：
+
+```javascript
+var applyMiddleware = function (middlewares){
+  return function (createStore){
+    return function (reducer){
+      //在这里装载中间件
+    }
+  }
+};
+```
+
+通过函数参数就可以看到，三层函数分别传入了中间件（middleware）、创建仓库方法（createStore）和reducer函数，这正是我们装载一个中间件所需要的。
+
+接下来我们的目标就是将中间件提供的dispatch覆盖redux原有的dispatch方法，这样就“装载”好了中间件。
+
+
+```javascript
+var applyMiddleware = function (middlewares) {
+    return function (createStore) {
+        return function (reducer) {
+            let store = createStore(reducer);
+            //调用中间件，返回新dispatch方法
+            let newDispatch = middlewares(store)(store.dispatch);
+            //覆盖原有的dispatch方法并返回仓库对象
+            return {
+                ...store,
+                dispatch: newDispatch
+            }
+        }
+    }
+}
+```
+有了通用写法，我们自己模拟实现一个日志中间件：
+```javascript
+function reduxLogger(store) {
+    return function (dispatch) {
+        //dispatch参数即原redux派发方法
+        return function (action) {
+            //返回的这个函数即新方法
+            //最终会传入applyMiddleware覆盖掉dispatch
+            console.log(`更新前：${JSON.stringify(store.getState())}`);
+            dispatch(action);
+            console.log(`更新后：${JSON.stringify(store.getState())}`);
+        }
+    }
+}
+```
+
+调用我们自己的方法装载中间件：`applyMiddleware(reduxLogger);`，运行效果如下：
+
+![](2018-10-23_15-10-01.png)
+
+### 组合中间件
+
+但是到现在还没完，还记得官方redux库吗？人家的applyMiddlewares方法是支持传入多个中间件的，如：`applyMiddlewares(middleware1,middleware2);` 我们目前的方法还不支持这种写法，最终的目的是想把若干个中间件一次组合为一个整体，一起加载。
+
+#### 洋葱模型
+
+洋葱模型的概念似乎是在Koa2框架中提出的，它是指中间件的执行机制，当多个中间件执行时，后一个中间件会套在前一个中间件的里面：
+
+![]()
+
+执行完一个中间件会一直向里走，直到最后一个执行结束，再从内而外走出，就像是在剥洋葱一样。
+
+#### compose方法
+
+我们同样使用洋葱模型来写一个组合方法，以达到目的。
+
+新建一个compose.js，创建一个组合函数：
+```javascript
+/**
+ * 组合所有中间件
+ * @param  {...any} middlewares 
+ */
+function compose(...middlewares) {
+    return function (...args) {
+
+    }
+}
+```
+
+我的目标是当调用组合函数，传入多个中间件，将所有的中间件组合成一个函数：
+```javascript
+var all = compose(middleware3, middleware2, middleware1);
+all();//调用时，依次执行所有中间件
+```
+我们动手实现它：
